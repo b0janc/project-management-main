@@ -8,24 +8,10 @@ import workspaceRouter from './routes/workspaceRoutes.js';
 import { protect } from './middlewares/authMiddlewares.js';
 
 
-const corsOptions = {
-  origin: 'http://localhost:5173', // Your React app's address
-  credentials: true,               // THIS IS CRITICAL: Allows auth headers
-  optionsSuccessStatus: 200        // Some browsers need this
-};
-
 const app = express();
 app.use(express.json());
 app.use(cors(corsOptions))
 app.use(clerkMiddleware({ apiKey: process.env.CLERK_API_KEY }));
-
-app.get('/api/workspaces', (req, res) => {
-    // For testing, let's just send back some data
-    res.status(200).json({ workspaces: [
-        { id: '1', name: 'Test Workspace 1' },
-        { id: '2', name: 'Test Workspace 2' }
-    ]});
-});
 
 app.get('/',(req,res)=>res.send('Server Is Live'));
 
