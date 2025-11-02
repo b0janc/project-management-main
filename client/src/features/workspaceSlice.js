@@ -2,9 +2,10 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../configs/api";
 
 
-export const fetchWorkspaces = createAsyncThunk('workspaces/fetchWorkspaces', async ({getToken}) => {
+export const fetchWorkspaces = createAsyncThunk('workspace/fetchWorkspaces', async ({getToken}) => {
     try {
-        const { data } = await api.get('/api/workspaces', { headers: { Authorization: `Bearer ${await getToken()}` } });
+
+        const { data } = await api.get(`/api/workspaces`, { headers: { Authorization: `Bearer ${await getToken()}` } });
         return data.workspaces || [];
     } catch (error) {
         console.log(error?.response?.data?.message || error.message);
@@ -122,16 +123,16 @@ const workspaceSlice = createSlice({
             state.loading = true;
         });
         builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
+            state.loading =false;
             state.workspaces = action.payload;
             if(action.payload.length > 0){
+
                 const localStorageCurrentWorkspaceId = localStorage.getItem("currentWorkspaceId");
                 if(localStorageCurrentWorkspaceId){
                 const findWorkspace = action.payload.find((w) => w.id === localStorageCurrentWorkspaceId);
                 if(findWorkspace){
                     state.currentWorkspace = findWorkspace
-                }if(!findWorkspace){
-                    state.currentWorkspace = findWorkspace      
-                     }
+                }
                     else{
                         state.currentWorkspace = action.payload[0];
                         }
