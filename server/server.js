@@ -10,7 +10,6 @@ import { protect } from './middlewares/authMiddlewares.js';
 
 const app = express();
 app.use(express.json());
-app.use(cors(corsOptions))
 app.use(clerkMiddleware({ apiKey: process.env.CLERK_API_KEY }));
 
 app.get('/',(req,res)=>res.send('Server Is Live'));
