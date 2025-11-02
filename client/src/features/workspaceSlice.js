@@ -1,24 +1,23 @@
-import { createSlice } from "@reduxjs/toolkit";
-import { dummyWorkspaces } from "../assets/assets";
-import { createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../configs/api";
-import { act } from "react";
-import { useAuth } from "@clerk/clerk-react";
+
 
 export const fetchWorkspaces = createAsyncThunk('workspaces/fetchWorkspaces', async ({getToken}) => {
     try {
-        const{data} = await api.get('/api/workspaces', {headers:{Authorization: `Bearer ${await getToken()}`}})
-        return data.workspaces || []
-}catch(error){
-    console.error(error?.response?.data?.message || error.message);
-    return []
+        const { data } = await api.get('/api/workspaces', { headers: { Authorization: `Bearer ${await getToken()}` } });
+        return data.workspaces || [];
+    } catch (error) {
+        console.log(error?.response?.data?.message || error.message);
+        return [];
     }
-})
+
+});
 
 
 const initialState = {
     workspaces: [],
     currentWorkspace: null,
+    currentWorkspaceId: localStorage.getItem("currentWorkspaceId"),
     loading: false,
 };
 
@@ -129,7 +128,7 @@ const workspaceSlice = createSlice({
                 if(localStorageCurrentWorkspaceId){
                 const findWorkspace = action.payload.find((w) => w.id === localStorageCurrentWorkspaceId);
                 if(findWorkspace){
-                    state.currentWorkspace = findWorkspace;
+                    state.currentWorkspace = findWorkspace
                 }if(!findWorkspace){
                     state.currentWorkspace = findWorkspace      
                      }

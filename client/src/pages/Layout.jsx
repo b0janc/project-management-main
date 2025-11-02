@@ -18,13 +18,13 @@ const Layout = () => {
     // Initial load of theme
     useEffect(() => {
         dispatch(loadTheme())
-    }, [])
+    }, [dispatch])
     //initial load of workspaces
     useEffect(() => {
         if(isLoaded && user && workspaces.length === 0){
             dispatch(fetchWorkspaces({getToken}))
         }
-    }, [user, isLoaded])
+    }, [user, isLoaded, dispatch, getToken, workspaces.length])
 
 
     if (!user){
@@ -41,10 +41,7 @@ const Layout = () => {
             <Loader2Icon className="size-7 text-blue-500 animate-spin" />
         </div>
     )
-
     
-   
-
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
             <Sidebar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
