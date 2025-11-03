@@ -18,13 +18,13 @@ const Layout = () => {
     // Initial load of theme
     useEffect(() => {
         dispatch(loadTheme())
-    }, [])
+    }, [dispatch])
     //initial load of workspaces
     useEffect(() => {
         if(isLoaded && user && workspaces.length === 0){
             dispatch(fetchWorkspaces({getToken}))
         }
-    }, [user, isLoaded, dispatch, getToken, workspaces.length])
+    }, [user, isLoaded])
 
 
     if (!user){
@@ -35,21 +35,19 @@ const Layout = () => {
         )
     }
 
- /*   if(user && workspaces.length === 0){
-        return(
-            <div className='min-h-screen flex justify-center items-center'>
-                <CreateOrganization />
-            </div>
-        )
-    }
-*/
-
     if (loading) return (
         <div className='flex items-center justify-center h-screen bg-white dark:bg-zinc-950'>
             <Loader2Icon className="size-7 text-blue-500 animate-spin" />
         </div>
     )
-
+/*
+       if(user && workspaces.length === 0){
+        return(
+            <div className='min-h-screen flex justify-center items-center'>
+                <CreateOrganization />
+            </div>
+        )
+    } */
     
     return (
         <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
