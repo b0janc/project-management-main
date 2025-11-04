@@ -13,6 +13,16 @@ try{
 
 })
 
+export const fetchWorkspaceMembers = createAsyncThunk(
+    'workspace/fetchWorkspaceMembers',
+    async ({ workspaceId, getToken }) => {
+        const { data } = await api.get(`/api/workspaces/${workspaceId}/members`, {
+            headers: { Authorization: `Bearer ${await getToken()}` }
+        });
+        return { workspaceId, members: data.members || data || [] }; 
+    }
+);
+
 const initialState = {
     workspaces: [],
     status: 'idle',
@@ -142,6 +152,17 @@ const workspaceSlice = createSlice({
         builder.addCase(fetchWorkspaces.rejected, (state) => {
             state.loading = false;
         });
+        builder.addCase(fetchWorkspaceMembers.fulfilled, (state, action) => {
+    const { workspaceId, members } = action.payload;
+    if (state.currentWorkspace?.id === workspaceId) {
+        state.currentWorkspace.members = members; 
+    }
+
+    // Also update the main list for consistency
+    state.workspaces = state.workspaces.map(w => 
+        w.id === workspaceId ? { ...w, members: members } : w
+    );
+});
     }
 });
 

@@ -6,11 +6,14 @@ import { useDispatch, useSelector } from 'react-redux'
 import { loadTheme } from '../features/themeSlice'
 import { Loader2Icon } from 'lucide-react'
 import {useUser, SignIn, useAuth, CreateOrganization } from '@clerk/clerk-react'
-import { fetchWorkspaces } from '../features/workspaceSlice'
+import { fetchWorkspaceMembers, fetchWorkspaces } from '../features/workspaceSlice'
 
 const Layout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const {loading, workspaces } = useSelector((state) => state.workspace)
+    
+    // 🎯 FIX: Added 'currentWorkspace' to the selector
+    const {loading, workspaces, currentWorkspace } = useSelector((state) => state.workspace)
+    
     const dispatch = useDispatch()
     const {user, isLoaded} = useUser()
     const {getToken} = useAuth()
@@ -19,12 +22,23 @@ const Layout = () => {
     useEffect(() => {
         dispatch(loadTheme())
     }, [dispatch])
+
     //initial load of workspaces
     useEffect(() => {
         if(isLoaded && user && workspaces.length === 0){
             dispatch(fetchWorkspaces({getToken}))
         }
-    }, [user, isLoaded])
+    }, [user, isLoaded, dispatch, getToken, workspaces.length]) // Added missing dependencies
+
+    // 🎯 FIX: Changed 'setCurrentWorkspace' (the function) to 'currentWorkspace' (the state variable)
+    useEffect(() => {
+        if (currentWorkspace?.id) {
+            dispatch(fetchWorkspaceMembers({ 
+                workspaceId: currentWorkspace.id, 
+                getToken: getToken 
+            }));
+        }
+    }, [currentWorkspace?.id, dispatch, getToken]); // Corrected dependency
 
 
     if (!user){
@@ -41,7 +55,7 @@ const Layout = () => {
         </div>
     )
 /*
-       if(user && workspaces.length === 0){
+    if(user && workspaces.length === 0){
         return(
             <div className='min-h-screen flex justify-center items-center'>
                 <CreateOrganization />
