@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ChevronRightIcon, SettingsIcon, KanbanIcon, ChartColumnIcon, CalendarIcon, ArrowRightIcon } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { shallowEqual, useSelector } from 'react-redux';
 
 const ProjectSidebar = () => {
 
@@ -11,7 +11,8 @@ const ProjectSidebar = () => {
     const [searchParams] = useSearchParams();
 
     const projects = useSelector(
-        (state) => state?.workspace?.currentWorkspace?.projects || []
+        (state) => state?.workspace?.currentWorkspace?.projects || [],
+        shallowEqual,
     );
 
     const getProjectSubItems = (projectId) => [

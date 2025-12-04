@@ -117,18 +117,40 @@ const syncWorkspaceDeletion = inngest.createFunction(
 
 
 //inngest function to save workspace from database
-const syncWorkspaceMemberCreation = inngest.createFunction(
+// Fungsi untuk menangani Member Baru
+export const syncWorkspaceMemberCreation = inngest.createFunction(
   { id: "sync-workspace-member-from-clerk" },
-  { event: 'clerk/organizationInvitation.accepted' },
+  [
+    { event: "clerk/organizationInvitation.accepted" },
+    { event: "clerk/organizationMembership.created" } // <-- TAMBAHAN PENTING
+  ],
   async ({ event, step }) => {
-    const { data } = event;
-    await prisma.workspaceMember.create({
-      data: {
-        userId: data.user_id,
-        workspaceId: data.organization_id,
-        role: String(data.role_name).toUpperCase
+    const data = event.data;
+    
+    await step.run("create-db-member", async () => {
+      // Normalisasi data (karena struktur invitation & membership beda dikit)
+      const userId = data.public_user_data?.user_id || data.public_user_data?.id || data.user_id;
+      const workspaceId = data.organization?.id || data.organization_id;
+      const role = data.role || "org:member"; // Default role
+      
+      // Ambil email (sedikit tricky karena posisinya beda-beda)
+      // Di membership.created, email ada di public_user_data.identifier
+      const email = data.public_user_data?.identifier || data.email_address;
+
+      if (!userId || !workspaceId) {
+        throw new Error("Missing userId or workspaceId from Clerk event");
       }
-    })
+
+      console.log(`Syncing member: ${userId} to workspace: ${workspaceId}`);
+
+      await prisma.workspaceMember.create({
+        data: {
+          userId: userId,
+          workspaceId: workspaceId,
+          role: role === "org:admin" ? "ADMIN" : "MEMBER",
+        },
+      });
+    });
   }
 );
 
