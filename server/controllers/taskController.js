@@ -5,7 +5,8 @@ import { inngest } from "../inngest/index.js";
 export const createTask = async (req, res) => {
     try {
         const { userId } = await req.auth();
-        const { projectId, workspaceId, title, description, type, status, priority, assigneeId, dueDate } = req.body;
+        // workspaceId diambil dari body tapi TIDAK dimasukkan ke DB Task
+        const { projectId, title, description, type, status, priority, assigneeId, dueDate } = req.body;
         const origin = req.get('origin');
 
         // Validasi Input Dasar
@@ -13,7 +14,7 @@ export const createTask = async (req, res) => {
             return res.status(400).json({ message: "Project ID and Title are required" });
         }
 
-        // Check permission
+        // Cek Izin & Validasi Member
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: { members: { include: { user: true } } }
@@ -39,7 +40,8 @@ export const createTask = async (req, res) => {
         const task = await prisma.task.create({
             data: {
                 projectId,
-                workspaceId,
+                // ❌ HAPUS BARIS INI: workspaceId, (Penyebab Error)
+                
                 title,
                 description,
                 priority: priority || "MEDIUM",
@@ -47,7 +49,7 @@ export const createTask = async (req, res) => {
                 status: status || "TO_DO",
                 type: type || "TASK",
                 
-                // 🎯 FIX UTAMA DI SINI: Ubah 'dueDate' jadi 'due_date'
+                // ✅ Gunakan nama kolom yang benar: due_date
                 due_date: validDueDate, 
                 
                 createdById: userId
@@ -59,6 +61,7 @@ export const createTask = async (req, res) => {
             include: { assignee: true, project: true }
         });
 
+        // Trigger Email Notification
         if (assigneeId && assigneeId !== userId) {
             await inngest.send({
                 name: "app/task.assigned",
@@ -92,13 +95,13 @@ export const updateTask = async (req, res) => {
         if (!project) return res.status(404).json({ message: "Project not found" });
         if (project.team_lead !== userId) return res.status(403).json({ message: "You don't have admin privileges" });
 
-        // Ambil data body
+        // Sanitasi input: Hapus id, projectId, workspaceId dari data update
         const { id, projectId, workspaceId, dueDate, ...otherData } = req.body;
 
-        // Siapkan object data update
+        // Siapkan object update
         const updateData = { ...otherData };
 
-        // Handle dueDate mapping untuk update juga
+        // Handle dueDate mapping
         if (dueDate !== undefined) {
             if (dueDate) {
                 const parsed = new Date(dueDate);
