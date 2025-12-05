@@ -30,7 +30,7 @@ export const createTask = async (req, res) => {
             data: {
                 // BUG: Ini sering kurang dan memicu error "Argument project is missing"
                 projectId: projectId, 
-                due_date: new Date(due_date) || null, 
+                due_date: new Date() || null, 
                 title,
                 description,
                 priority: priority || "MEDIUM",
