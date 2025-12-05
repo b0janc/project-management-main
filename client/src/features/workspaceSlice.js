@@ -1,20 +1,24 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import api from "../configs/api";
 
-// --- A. ASYNC ACTIONS (THUNKS) ---
-// WAJIB diletakkan di paling atas (luar createSlice)
+// ------------------------------------------------------------------
+// 1. DEFINISIKAN ASYNC THUNK DI SINI (PALING ATAS - SANGAT PENTING)
+// ------------------------------------------------------------------
 
 export const fetchWorkspaces = createAsyncThunk(
   'workspace/fetchWorkspaces',
   async ({ getToken }, { rejectWithValue }) => {
     try {
+      // Mengambil token untuk autentikasi
+      const token = await getToken();
+      // Request ke Backend
       const { data } = await api.get('/api/workspaces', {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      // Mencegah error "find is not a function" dengan memastikan array
+      // Kembalikan data (Array)
       return data.workspaces || data || []; 
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error?.response?.data?.message || error.message);
     }
   }
 );
@@ -23,17 +27,21 @@ export const fetchWorkspaceMembers = createAsyncThunk(
   'workspace/fetchWorkspaceMembers',
   async ({ workspaceId, getToken }, { rejectWithValue }) => {
     try {
+      const token = await getToken();
       const { data } = await api.get(`/api/workspaces/${workspaceId}/members`, {
-        headers: { Authorization: `Bearer ${await getToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      return { workspaceId, members: data.members || [] };
+      return { workspaceId, members: data.members || [] }; 
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
-// --- B. INITIAL STATE ---
+// ------------------------------------------------------------------
+// 2. INITIAL STATE
+// ------------------------------------------------------------------
+
 const initialState = {
   workspaces: [],
   currentWorkspace: null,
@@ -42,20 +50,23 @@ const initialState = {
   error: null,
 };
 
-// --- C. SLICE & REDUCERS ---
+// ------------------------------------------------------------------
+// 3. CREATE SLICE (BARU DIBUAT SETELAH THUNK DIATAS ADA)
+// ------------------------------------------------------------------
+
 const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
   reducers: {
     setWorkspaces: (state, action) => {
-      state.workspaces = action.payload;
+      state.workspaces = Array.isArray(action.payload) ? action.payload : [];
     },
     setCurrentWorkspace: (state, action) => {
-      const found = state.workspaces.find(w => w.id === action.payload);
-      if (found) {
-        state.currentWorkspace = found;
-        localStorage.setItem("currentWorkspaceId", action.payload);
-      }
+      const workspaceId = action.payload;
+      localStorage.setItem("currentWorkspaceId", workspaceId);
+      
+      const found = state.workspaces.find((w) => w.id === workspaceId);
+      if (found) state.currentWorkspace = found;
     },
     addWorkspace: (state, action) => {
       state.workspaces.push(action.payload);
@@ -84,28 +95,76 @@ const workspaceSlice = createSlice({
         }
       }
     },
-    // ... (updateTask, deleteTask, dll logika sama seperti diskusi sebelumnya)
+    updateTask: (state, action) => {
+        const updatedTask = action.payload;
+        const workspace = state.workspaces.find(w => w.id === state.currentWorkspace?.id);
+        if (workspace) {
+            const project = workspace.projects.find((p) => p.id === updatedTask.projectId);
+            if (project) {
+                const index = project.tasks.findIndex((t) => t.id === updatedTask.id);
+                if (index !== -1) {
+                    project.tasks[index] = updatedTask;
+                    state.currentWorkspace = workspace;
+                }
+            }
+        }
+    },
+    deleteTask: (state, action) => {
+        const { projectId, taskIds } = action.payload;
+        const workspace = state.workspaces.find(w => w.id === state.currentWorkspace?.id);
+        if (workspace) {
+            const project = workspace.projects.find((p) => p.id === projectId);
+            if (project) {
+                project.tasks = project.tasks.filter((t) => !taskIds.includes(t.id));
+                state.currentWorkspace = workspace;
+            }
+        }
+    },
+    resetWorkspace: (state) => {
+        state.workspaces = [];
+        state.currentWorkspace = null;
+        state.status = 'idle';
+        localStorage.removeItem("currentWorkspaceId");
+    }
   },
+  
+  // EXTRA REDUCERS (Tempat Thunk digunakan)
   extraReducers: (builder) => {
+    // Di sini 'fetchWorkspaces' dipanggil. Jika fetchWorkspaces didefinisikan di bawah, ini akan ERROR.
+    builder.addCase(fetchWorkspaces.pending, (state) => {
+      state.loading = true;
+      state.status = 'loading';
+    });
+
     builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
       let data = action.payload;
-      if (!Array.isArray(data)) data = data.workspaces || [];
+      if (!Array.isArray(data)) data = data.workspaces || data.data || [];
       
       state.workspaces = data;
-      state.status = 'succeeded';
       state.loading = false;
+      state.status = 'succeeded';
 
-      // Auto-Select Logic
+      // Auto-Select Workspace Logic
       if (data.length > 0) {
         const savedId = localStorage.getItem('currentWorkspaceId');
-        const saved = data.find(w => w.id === savedId);
-        state.currentWorkspace = saved || data[0];
-        localStorage.setItem('currentWorkspaceId', state.currentWorkspace.id);
+        const savedWorkspace = data.find((w) => w.id === savedId);
+        if (savedWorkspace) {
+          state.currentWorkspace = savedWorkspace;
+        } else {
+          state.currentWorkspace = data[0];
+          localStorage.setItem('currentWorkspaceId', data[0].id);
+        }
       } else {
         state.currentWorkspace = null;
       }
     });
-    // ... (handle pending & rejected)
+
+    builder.addCase(fetchWorkspaces.rejected, (state) => {
+      state.loading = false;
+      state.status = 'failed';
+      state.workspaces = []; 
+    });
+
     builder.addCase(fetchWorkspaceMembers.fulfilled, (state, action) => {
         const { workspaceId, members } = action.payload;
         const ws = state.workspaces.find(w => w.id === workspaceId);
@@ -117,11 +176,9 @@ const workspaceSlice = createSlice({
   }
 });
 
-// --- D. EXPORTS (WAJIB LENGKAP) ---
 export const { 
   setWorkspaces, setCurrentWorkspace, addWorkspace, 
-  addProject, addTask, // <-- Pastikan ini ada!
-  updateTask, deleteTask 
+  addProject, addTask, updateTask, deleteTask, resetWorkspace 
 } = workspaceSlice.actions;
 
 export default workspaceSlice.reducer;
