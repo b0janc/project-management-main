@@ -159,7 +159,7 @@ const workspaceSlice = createSlice({
       }
     });
 
-    builder.addCase(fetchWorkspaces.rejected, (state) => {
+    builder.addCase(fetchWorkspaces.rejected, (state, action) => {
       state.loading = false;
       state.status = 'failed';
       state.workspaces = []; 
