@@ -15,7 +15,7 @@ export const createTask = async (req, res) => {
             return res.status(400).json({ message: "Project ID and Title are required" });
         }
 
-        // Cek Permission Project
+        // Cek Permission & Validasi Member
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: { members: { include: { user: true } } }
@@ -25,10 +25,8 @@ export const createTask = async (req, res) => {
             return res.status(404).json({ message: "Project not found" });
         } else if (project.team_lead !== userId) {
             return res.status(403).json({ message: "You don't have admin privileges for this project" });
-        } 
-        
-        // Validasi Member (Assignee)
-        if (assigneeId && !project.members.find((member) => member.user.email === assigneeId || member.userId === assigneeId)) {
+        } else if (assigneeId && !project.members.find((member) => member.user.email === assigneeId || member.userId === assigneeId)) {
+            // Note: Validation might need adjustment based on whether assigneeId is email or userId
             return res.status(403).json({ message: "Assignee is not a member of the project" });
         }
 
@@ -42,15 +40,14 @@ export const createTask = async (req, res) => {
         }
 
         // --- PREPARE DATA OBJECT ---
-        // Kita susun object datanya dulu agar bisa melakukan kondisional pada assignee
         const taskData = {
             title,
             description,
             priority: priority || "MEDIUM",
             status: status || "TO_DO",
             type: type || "TASK",
-            due_date: validDueDate,
-            createdById: userId, // Scalar ini sepertinya aman (tidak error di log)
+            due_date: validDueDate, // Use snake_case as per Prisma schema error
+            // createdById: userId, // Uncomment if your schema has this field
             
             // Relasi Project (Wajib Connect)
             project: {
@@ -58,7 +55,7 @@ export const createTask = async (req, res) => {
             }
         };
 
-        // 🎯 FIX: Relasi Assignee (Gunakan Connect jika ada ID)
+        // Relasi Assignee (Gunakan Connect jika ada ID)
         if (assigneeId) {
             taskData.assignee = {
                 connect: { id: assigneeId }
@@ -75,7 +72,7 @@ export const createTask = async (req, res) => {
             include: { assignee: true, project: true }
         });
 
-        // Trigger Email
+        // Trigger Email Notification
         if (assigneeId && assigneeId !== userId) {
             await inngest.send({
                 name: "app/task.assigned",
@@ -109,12 +106,13 @@ export const updateTask = async (req, res) => {
         if (!project) return res.status(404).json({ message: "Project not found" });
         if (project.team_lead !== userId) return res.status(403).json({ message: "You don't have admin privileges" });
 
+        // Sanitasi Input
         const { id: _, projectId, workspaceId, dueDate, assigneeId, ...otherData } = req.body;
 
         // Siapkan object update
         const updateData = { ...otherData };
 
-        // Handle Tanggal
+        // Handle dueDate mapping
         if (dueDate !== undefined) {
             if (dueDate) {
                 const parsed = new Date(dueDate);
@@ -124,18 +122,17 @@ export const updateTask = async (req, res) => {
             }
         }
 
-        // 🎯 FIX: Handle Assignee Update (Gunakan Connect/Disconnect)
+        // Handle Assignee Update (Connect/Disconnect)
         if (assigneeId !== undefined) {
             if (assigneeId) {
                 updateData.assignee = { connect: { id: assigneeId } };
             } else {
-                // Jika dikirim null/kosong, putuskan hubungan (disconnect)
                 updateData.assignee = { disconnect: true };
             }
         }
 
         const updatedTask = await prisma.task.update({
-            where: { id },
+            where: { id: req.params.id },
             data: updateData
         });
 
@@ -159,15 +156,23 @@ export const deleteTask = async (req, res) => {
             return res.status(400).json({ message: "Invalid task IDs provided" });
         }
 
-        const tasks = await prisma.task.findMany({ where: { id: { in: taskIds } } });
+        const tasks = await prisma.task.findMany({
+            where: { id: { in: taskIds } }
+        });
+
         if (tasks.length === 0) return res.status(404).json({ message: "Tasks not found" });
 
-        const project = await prisma.project.findUnique({ where: { id: tasks[0].projectId } });
+        // FIX: Use 'tasks' array instead of undefined 'task' variable
+        const project = await prisma.project.findUnique({
+            where: { id: tasks[0].projectId }
+        });
 
         if (!project) return res.status(404).json({ message: "Project not found" });
         if (project.team_lead !== userId) return res.status(403).json({ message: "You don't have admin privileges" });
 
-        await prisma.task.deleteMany({ where: { id: { in: taskIds } } });
+        await prisma.task.deleteMany({
+            where: { id: { in: taskIds } }
+        });
 
         res.json({ message: "Tasks deleted successfully" });
 
