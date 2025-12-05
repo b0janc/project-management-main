@@ -30,9 +30,7 @@ export const createTask = async (req, res) => {
             data: {
                 // BUG: Ini sering kurang dan memicu error "Argument project is missing"
                 projectId: projectId, 
-                // BUG: Ini akan crash jika dueDate adalah string kosong ("")
-                due_date: new Date() || null, 
-                
+                due_date: new Date(due_date) || null, 
                 title,
                 description,
                 priority: priority || "MEDIUM",
@@ -40,8 +38,6 @@ export const createTask = async (req, res) => {
                 type: type || "TASK",
                 assigneeId: assigneeId, // BUG: Ini sering memicu error "Argument assignee is missing"
                 
-                // Asumsi field ini ada untuk audit
-                createdBy: userId, 
             }
         });
             
