@@ -41,7 +41,7 @@ export const createTask = async (req, res) => {
                 assigneeId: assigneeId, // BUG: Ini sering memicu error "Argument assignee is missing"
                 
                 // Asumsi field ini ada untuk audit
-                createdById: userId, 
+                createdBy: userId, 
             }
         });
             
